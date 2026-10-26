@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мишка-стрим</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1f222b;
+    --panel-line: #333846;
+    --text: #f2f2f2;
+    --muted: #9aa0ad;
+    --accent: #ffb347;
+  }
+  body.green { --bg: #00ff00; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  body.obs { background: transparent; }
+
+  /* ---------- сцена ---------- */
+  #stage {
+    position: absolute; inset: 0;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 120px;
+  }
+  #bear-wrap { position: relative; width: min(55vh, 420px, 80vw); }
+  #bear { width: 100%; height: auto; display: block; overflow: visible; }
+
+  /* вопрос зрителя сверху */
+  #ask {
+    position: absolute; top: 24px; left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    max-width: min(90vw, 720px); z-index: 3;
+    background: rgba(0,0,0,.65); color: #fff;
+    padding: 12px 22px; border-radius: 16px;
+    font-size: clamp(18px, 3vh, 28px); text-align: center;
+    opacity: 0; transition: opacity .25s, transform .25s;
+  }
+  #ask.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #ask b { color: var(--accent); }
+
+  /* облачко с ответом */
+  #bubble {
+    position: absolute; left: 50%; top: 0;
+    transform: translate(-50%, -105%) scale(0);
+    background: #fff; color: #222;
+    font-weight: 800; font-size: clamp(28px, 6vh, 56px);
+    padding: 10px 28px; border-radius: 26px; white-space: nowrap; z-index: 4;
+    transition: transform .25s cubic-bezier(.3,1.6,.5,1);
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  #bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -14px;
+    transform: translateX(-50%);
+    border: 14px solid transparent; border-bottom: 0; border-top-color: #fff;
+  }
+  #bubble.show { transform: translate(-50%, -105%) scale(1); }
+
+  /* лента событий слева */
+  #feed {
+    position: absolute; top: 24px; left: 16px;
+    list-style: none; margin: 0; padding: 0;
+    width: min(300px, 40vw); font-size: 15px; z-index: 2;
+  }
+  #feed li {
+    background: rgba(0,0,0,.55); color: #fff;
+    padding: 7px 12px; border-radius: 10px; margin-bottom: 6px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    animation: slide .3s ease-out;
+  }
+  #feed li b { color: var(--accent); }
+  @keyframes slide { from { opacity: 0; transform: translateX(-20px); } }
+
+  /* вертикальный экран (TikTok): лента вниз-влево, плашка компактнее */
+  @media (max-aspect-ratio: 1/1) {
+    #ask { top: 12px; font-size: clamp(15px, 2.2vh, 24px); padding: 8px 16px; width: calc(100vw - 32px); }
+    #feed { top: auto; bottom: var(--feed-bottom, 16px); font-size: 13px; width: min(260px, 60vw); }
+    #feed li:nth-child(n+4) { display: none; }
+  }
+
+  #confetti { position: absolute; inset: 0; pointer-events: none; }
+
+  /* ---------- панель для теста ---------- */
+  #panel {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    width: min(860px, calc(100vw - 32px));
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    padding: 10px; border-radius: 14px;
+  }
+  body.obs #panel, body.nopanel #panel { display: none; }
+  #panel input {
+    background: #111319; color: var(--text);
+    border: 1px solid var(--panel-line); border-radius: 9px;
+    padding: 9px 11px; font-size: 15px;
+  }
+  #name { width: 110px; }
+  #q { flex: 1; min-width: 160px; }
+  #panel button {
+    background: #2c3140; color: var(--text);
+    border: 1px solid var(--panel-line); border-radius: 9px;
+    padding: 9px 12px; font-size: 15px; cursor: pointer;
+  }
+  #panel button:hover { background: #38405a; }
+  #panel button.primary { background: var(--accent); color: #222; border-color: var(--accent); font-weight: 700; }
+  #status { width: 100%; text-align: center; font-size: 13px; font-weight: 600; padding: 6px; border-radius: 8px; background: #2c3140; }
+  #status::before { content: "● "; }
+  #status.live { color: #6dff8a; }
+  #status.connecting, #status.offline { color: #ffd166; }
+  #status.error { color: #ff7b7b; }
+  #status.test { color: var(--muted); }
+  #panel .hint { color: var(--muted); font-size: 12px; width: 100%; text-align: center; }
+
+  /* ---------- анимации мишки ---------- */
+  #head, #eyes, #pawL, #pawR, #torso { transform-box: fill-box; }
+  #head { transform-origin: 50% 85%; }
+  #eyes { transform-origin: center; transition: transform .08s; }
+  #bear.blink #eyes { transform: scaleY(.1); }
+  #pawL { transform-origin: 80% 10%; }
+  #pawR { transform-origin: 20% 10%; }
+  #torso { transform-origin: 50% 100%; animation: breathe 3.5s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: scale(1.02, .985); } }
+
+  .nod #head   { animation: nod .35s ease-in-out 3; }
+  @keyframes nod { 50% { transform: translateY(14px); } }
+
+  .shake #head { animation: shake .32s ease-in-out 3; }
+  @keyframes shake { 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } }
+
+  .shrug #head { animation: shrug 1.6s ease-in-out; }
+  .shrug #pawL, .shrug #pawR { animation: up 1.6s ease-in-out; }
+  @keyframes shrug { 30%, 70% { transform: rotate(-14deg) translateY(-6px); } }
+  @keyframes up { 30%, 70% { transform: translateY(-18px); } }
+
+  .laugh #bear { animation: laugh .18s ease-in-out 9; }
+  @keyframes laugh { 50% { transform: translateY(-12px); } }
+
+  .dance #bear { animation: dance .5s ease-in-out 6; transform-origin: 50% 100%; }
+  .dance #pawL, .dance #pawR, .sing #pawL, .sing #pawR { animation: wave .25s ease-in-out 12; }
+  @keyframes dance { 25% { transform: rotate(-10deg) translateX(-24px); } 75% { transform: rotate(10deg) translateX(24px); } }
+  @keyframes wave { 50% { transform: rotate(-35deg); } }
+
+  .fall #bear { animation: fall 2.8s ease-in-out; transform-origin: 50% 60%; }
+  @keyframes fall { 20%, 75% { transform: translateY(18%) rotate(-90deg) scale(.75); } 85% { transform: rotate(4deg); } }
+
+  .sing #bear { animation: sing .6s ease-in-out 6; transform-origin: 50% 100%; }
+  @keyframes sing { 50% { transform: scale(1.06) rotate(3deg); } }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="ask"></div>
+  <ul id="feed"></ul>
+  <div id="bear-wrap">
+    <div id="bubble"></div>
+    <svg id="bear" viewBox="0 0 300 360" xmlns="http://www.w3.org/2000/svg">
+      <!-- тело -->
+      <g id="torso">
+        <ellipse cx="100" cy="342" rx="32" ry="16" fill="#7a4e33"/>
+        <ellipse cx="200" cy="342" rx="32" ry="16" fill="#7a4e33"/>
+        <ellipse cx="150" cy="282" rx="95" ry="65" fill="#8b5a3c"/>
+        <ellipse cx="150" cy="296" rx="56" ry="42" fill="#c99a6e"/>
+        <g id="pawL"><ellipse cx="68" cy="275" rx="22" ry="36" fill="#7a4e33" transform="rotate(20 68 275)"/></g>
+        <g id="pawR"><ellipse cx="232" cy="275" rx="22" ry="36" fill="#7a4e33" transform="rotate(-20 232 275)"/></g>
+      </g>
+      <!-- голова -->
+      <g id="head">
+        <circle cx="68" cy="62" r="32" fill="#8b5a3c"/>
+        <circle cx="68" cy="62" r="16" fill="#c99a6e"/>
+        <circle cx="232" cy="62" r="32" fill="#8b5a3c"/>
+        <circle cx="232" cy="62" r="16" fill="#c99a6e"/>
+        <circle cx="150" cy="140" r="100" fill="#9c6644"/>
+        <circle cx="85" cy="172" r="15" fill="#ff8a8a" opacity=".35"/>
+        <circle cx="215" cy="172" r="15" fill="#ff8a8a" opacity=".35"/>
+        <g id="eyes">
+          <circle cx="112" cy="130" r="12" fill="#2b1b12"/>
+          <circle cx="188" cy="130" r="12" fill="#2b1b12"/>
+          <circle cx="116" cy="126" r="4" fill="#fff"/>
+          <circle cx="192" cy="126" r="4" fill="#fff"/>
+        </g>
+        <path id="browL" d="" stroke="#2b1b12" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path id="browR" d="" stroke="#2b1b12" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <ellipse cx="150" cy="182" rx="46" ry="34" fill="#d9b08c"/>
+        <ellipse cx="150" cy="165" rx="15" ry="10" fill="#2b1b12"/>
+        <path id="mouth" d="" stroke="#2b1b12" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </svg>
+  </div>
+  <canvas id="confetti"></canvas>
+</div>
+
+<div id="panel">
+  <input id="name" value="Зритель" maxlength="20" aria-label="Имя зрителя">
+  <input id="q" placeholder="Задай вопрос мишке…" maxlength="80" aria-label="Вопрос">
+  <button id="askBtn" class="primary">Спросить</button>
+  <button data-gift="rose">🌹 Мелкий</button>
+  <button data-gift="lion">🦁 Средний</button>
+  <button data-gift="universe">🌌 Крупный</button>
+  <button id="bgBtn">Фон</button>
+  <input id="twitch" placeholder="Twitch-канал" maxlength="25" aria-label="Twitch-канал">
+  <button id="twitchBtn">Подключить Twitch</button>
+  <div id="status" class="test">Тест-режим: впиши свой Twitch-канал и нажми «Подключить Twitch»</div>
+  <div class="hint">Мишка отвечает на комментарии со знаком «?». Подарки TikTok: мелкий — до 10 монет, средний — до 1000, крупный — от 1000. Twitch: до 100 bits, до 1000 bits, от 1000 bits; подписка — средний. Стример и модераторы могут проверить реакции командами !мелкий, !средний, !крупный в чате. H — спрятать панель, «Фон» — зелёный фон для OBS.</div>
+</div>
+
+<script>
+  // ---------- лица ----------
+  const FACES = {
+    neutral: { m: 'M130 198 Q150 210 170 198', fill: 'none',    bl: 'M95 108 Q110 100 125 108', br: 'M175 108 Q190 100 205 108' },
+    happy:   { m: 'M124 194 Q150 224 176 194', fill: 'none',    bl: 'M95 104 Q110 94 125 104',  br: 'M175 104 Q190 94 205 104' },
+    laugh:   { m: 'M124 192 Q150 238 176 192 Z', fill: '#5b1f1f', bl: 'M95 102 Q110 92 125 102', br: 'M175 102 Q190 92 205 102' },
+    sad:     { m: 'M128 210 Q150 192 172 210', fill: 'none',    bl: 'M95 102 Q110 108 125 116', br: 'M175 116 Q190 108 205 102' },
+    meh:     { m: 'M134 204 L166 200',         fill: 'none',    bl: 'M95 108 L125 112',          br: 'M175 102 Q190 94 205 104' },
+    wow:     { m: 'M138 200 Q150 226 162 200 Q150 188 138 200 Z', fill: '#5b1f1f', bl: 'M95 96 Q110 84 125 96', br: 'M175 96 Q190 84 205 96' },
+    sing:    { m: 'M136 196 Q150 222 164 196 Z', fill: '#5b1f1f', bl: 'M95 104 Q110 94 125 104',  br: 'M175 104 Q190 94 205 104' },
+  };
+
+  // ---------- ответы на вопросы ----------
+  const ANSWERS = [
+    { text: 'Да!',       say: 'Да',          face: 'happy', anim: 'nod',   dur: 1800 },
+    { text: 'Нет.',      say: 'Нет',         face: 'sad',   anim: 'shake', dur: 1800 },
+    { text: 'Хз 🤷',     say: 'Не знаю',     face: 'meh',   anim: 'shrug', dur: 2000 },
+    { text: 'Ха-ха-ха!', say: 'Ха-ха-ха',    face: 'laugh', anim: 'laugh', dur: 2000 },
+  ];
+
+  // ---------- подарки ----------
+  const GIFTS = {
+    rose:     { name: 'Розу',      emoji: '🌹', text: 'Спасибо! 💃',  say: 'Спасибо!',      face: 'happy', anim: 'dance', dur: 3200 },
+    lion:     { name: 'Льва',      emoji: '🦁', text: 'Ой-ой-ой!',    say: 'Ой-ой-ой!',     face: 'wow',   anim: 'fall',  dur: 3000 },
+    universe: { name: 'Вселенную', emoji: '🌌', text: 'Ла-ла-ла! 🎉', say: 'Ла-ла-ла-ла!',  face: 'sing',  anim: 'sing',  dur: 3600, confetti: true },
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const bear = $('bear'), wrap = $('bear-wrap'), bubble = $('bubble'), ask = $('ask'), feed = $('feed');
+
+  function setFace(name) {
+    const f = FACES[name];
+    $('mouth').setAttribute('d', f.m);
+    $('mouth').setAttribute('fill', f.fill);
+    $('browL').setAttribute('d', f.bl);
+    $('browR').setAttribute('d', f.br);
+  }
+  setFace('neutral');
+
+  // моргание
+  (function blink() {
+    bear.classList.add('blink');
+    setTimeout(() => bear.classList.remove('blink'), 120);
+    setTimeout(blink, 2200 + Math.random() * 3000);
+  })();
+
+  // ---------- голос и звук ----------
+  function say(text) {
+    try {
+      const s = window.speechSynthesis;
+      if (!s) return;
+      s.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      const v = s.getVoices().find((v) => v.lang.startsWith('ru'));
+      if (v) u.voice = v;
+      u.pitch = 0.5;
+      u.rate = 0.95;
+      s.speak(u);
+    } catch (e) {}
+  }
+
+  let audio;
+  function ding() {
+    try {
+      audio = audio || new AudioContext();
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+      o.frequency.setValueAtTime(880, t);
+      o.frequency.setValueAtTime(1320, t + 0.12);
+      g.gain.setValueAtTime(0.18, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      o.connect(g).connect(audio.destination);
+      o.start(t); o.stop(t + 0.5);
+    } catch (e) {}
+  }
+
+  // ---------- конфетти ----------
+  const cv = $('confetti'), cx = cv.getContext('2d');
+  function confetti() {
+    cv.width = innerWidth; cv.height = innerHeight;
+    const colors = ['#ffb347', '#ff6b6b', '#4dd4ff', '#7dff7a', '#c38bff', '#fff36b'];
+    const parts = Array.from({ length: 160 }, () => ({
+      x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+      vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 4,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+      c: colors[(Math.random() * colors.length) | 0],
+    }));
+    const end = performance.now() + 3500;
+    (function frame(now) {
+      cx.clearRect(0, 0, cv.width, cv.height);
+      for (const p of parts) {
+        p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r);
+        cx.fillStyle = p.c; cx.fillRect(-5, -3, 10, 6);
+        cx.restore();
+      }
+      if (now < end) requestAnimationFrame(frame);
+      else cx.clearRect(0, 0, cv.width, cv.height);
+    })(performance.now());
+  }
+
+  // ---------- лента и плашка вопроса (только textContent: текст из чата чужой) ----------
+  function line(el, user, rest) {
+    el.textContent = '';
+    const b = document.createElement('b');
+    b.textContent = user;
+    el.append(b, rest);
+  }
+  function addFeed(ev) {
+    const li = document.createElement('li');
+    if (ev.type === 'gift') line(li, ev.user, ` подарил(а) ${GIFTS[ev.gift].emoji} ${ev.giftName || GIFTS[ev.gift].name}`);
+    else line(li, ev.user, `: ${ev.text}`);
+    feed.prepend(li);
+    while (feed.children.length > 6) feed.lastChild.remove();
+  }
+
+  // ---------- очередь событий ----------
+  const queue = [];
+  let busy = false;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function push(ev) {
+    if (ev.type === 'gift' && !GIFTS[ev.gift]) return;
+    if (ev.type === 'question' && !String(ev.text || '').trim()) return;
+    ev.user = String(ev.user || 'Зритель').slice(0, 20);
+    if (ev.text) ev.text = String(ev.text).slice(0, 80);
+    if (ev.giftName) ev.giftName = String(ev.giftName).slice(0, 40);
+    // вопросов в очереди не больше 3, всего не больше 15 — подарки важнее
+    if (ev.type === 'question' && queue.filter((e) => e.type === 'question').length >= 3) return;
+    if (queue.length >= 15) return;
+    queue.push(ev);
+    addFeed(ev);
+    if (!busy) next();
+  }
+
+  async function next() {
+    const ev = queue.shift();
+    if (!ev) { busy = false; return; }
+    busy = true;
+    await play(ev);
+    await wait(350);
+    next();
+  }
+
+  async function play(ev) {
+    let r;
+    if (ev.type === 'gift') {
+      r = GIFTS[ev.gift];
+      line(ask, ev.user, ` дарит ${r.emoji} ${ev.giftName || r.name}!`);
+      ding();
+      if (r.confetti) confetti();
+    } else {
+      r = ANSWERS[(Math.random() * ANSWERS.length) | 0];
+      line(ask, ev.user, ` спрашивает: ${ev.text}`);
+    }
+    ask.classList.add('show');
+    await wait(500);
+
+    setFace(r.face);
+    wrap.className = '';
+    void wrap.offsetWidth; // перезапуск анимации
+    wrap.className = r.anim;
+    bubble.textContent = r.text;
+    bubble.classList.add('show');
+    say(r.say);
+
+    await wait(r.dur);
+    bubble.classList.remove('show');
+    ask.classList.remove('show');
+    wrap.className = '';
+    setFace('neutral');
+  }
+
+  // сюда потом подключим TikTok / Twitch
+  window.stream = { push };
+
+  // ---------- связь с мостом TikTok (если страница открыта через npm start) ----------
+  // мост работает только на компьютере стримера; для Twitch он не нужен — страница сама читает чат
+  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (isLocal && !new URLSearchParams(location.search).has('twitch')) {
+    const st = $('status');
+    const es = new EventSource('/events');
+    es.onmessage = (e) => {
+      let ev;
+      try { ev = JSON.parse(e.data); } catch { return; }
+      if (ev.type === 'status') { st.className = ev.state; st.textContent = ev.text; }
+      else push(ev);
+    };
+    es.onerror = () => { st.className = 'error'; st.textContent = 'Нет связи с мостом — запущен ли npm start?'; };
+  }
+
+  // ---------- Twitch: чат читаем прямо со страницы, без моста и без логина ----------
+  function showStatus(state, text) {
+    const st = $('status');
+    st.className = state;
+    st.textContent = text;
+  }
+
+  // bits: 100 bits ≈ $1
+  const bitTier = (bits) => (bits >= 1000 ? 'universe' : bits >= 100 ? 'lion' : 'rose');
+  // команды для проверки без денег — работают только у стримера и модераторов
+  const TEST_CMDS = { '!мелкий': 'rose', '!средний': 'lion', '!крупный': 'universe' };
+
+  function parseIrc(line) {
+    const m = { tags: {}, prefix: '', trailing: '' };
+    let rest = line;
+    if (rest[0] === '@') {
+      const i = rest.indexOf(' ');
+      for (const kv of rest.slice(1, i).split(';')) {
+        const j = kv.indexOf('=');
+        m.tags[kv.slice(0, j)] = kv.slice(j + 1)
+          .replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\');
+      }
+      rest = rest.slice(i + 1);
+    }
+    if (rest[0] === ':') {
+      const i = rest.indexOf(' ');
+      m.prefix = rest.slice(1, i);
+      rest = rest.slice(i + 1);
+    }
+    const t = rest.indexOf(' :');
+    if (t >= 0) { m.trailing = rest.slice(t + 2); rest = rest.slice(0, t); }
+    m.command = rest.split(' ')[0];
+    return m;
+  }
+
+  const twitchUser = (m) => m.tags['display-name'] || m.tags.login || m.prefix.split('!')[0] || 'Зритель';
+
+  function onTwitchChat(m) {
+    const user = twitchUser(m);
+    const text = m.trailing.trim();
+    const bits = parseInt(m.tags.bits || '0', 10);
+    if (bits > 0) return push({ type: 'gift', user, gift: bitTier(bits), giftName: `${bits} bits` });
+    const cmd = TEST_CMDS[text.toLowerCase()];
+    if (cmd && /(^|,)(broadcaster|moderator)\//.test(m.tags.badges || '')) {
+      return push({ type: 'gift', user, gift: cmd, giftName: 'тестовый подарок' });
+    }
+    if (text.endsWith('?')) push({ type: 'question', user, text });
+  }
+
+  function onTwitchNotice(m) {
+    const user = twitchUser(m);
+    const id = m.tags['msg-id'];
+    if (id === 'sub' || id === 'resub') {
+      push({ type: 'gift', user, gift: 'lion', giftName: 'подписку' });
+    } else if (id === 'submysterygift') {
+      const n = parseInt(m.tags['msg-param-mass-gift-count'] || '1', 10);
+      push({ type: 'gift', user, gift: n >= 5 ? 'universe' : 'lion', giftName: `${n} подписок` });
+    } else if (id === 'subgift' && !m.tags['msg-param-community-gift-id']) {
+      // подписки из «пачки» уже посчитаны в submysterygift, тут только одиночные
+      push({ type: 'gift', user, gift: 'lion', giftName: 'подписку в подарок' });
+    }
+  }
+
+  function connectTwitch(channel) {
+    const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    let joined = false;
+    showStatus('connecting', `Подключаюсь к чату twitch.tv/${channel}…`);
+    const check = setTimeout(() => {
+      if (!joined) showStatus('error', `Не вижу чат twitch.tv/${channel}. Проверь название канала.`);
+    }, 10000);
+    ws.onopen = () => {
+      ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      ws.send('NICK justinfan' + Math.floor(10000 + Math.random() * 89999));
+      ws.send('JOIN #' + channel);
+    };
+    ws.onmessage = (e) => {
+      for (const line of e.data.split('\r\n')) {
+        if (!line) continue;
+        const m = parseIrc(line);
+        if (m.command === 'PING') ws.send('PONG :' + m.trailing);
+        else if (m.command === 'ROOMSTATE' && !joined) {
+          joined = true;
+          clearTimeout(check);
+          showStatus('live', `Слушаю чат twitch.tv/${channel}. Для OBS: ${obsLink(channel)}`);
+        }
+        else if (m.command === 'NOTICE') showStatus('error', 'Twitch: ' + m.trailing);
+        else if (m.command === 'PRIVMSG') onTwitchChat(m);
+        else if (m.command === 'USERNOTICE') onTwitchNotice(m);
+      }
+    };
+    ws.onclose = () => {
+      clearTimeout(check);
+      showStatus('offline', 'Связь с Twitch пропала, переподключаюсь…');
+      setTimeout(() => connectTwitch(channel), 5000);
+    };
+  }
+
+  const cleanChannel = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 25);
+  function obsLink(channel) {
+    const u = new URL(location.href);
+    u.search = '';
+    u.searchParams.set('twitch', channel);
+    u.searchParams.set('obs', '');
+    return u.href;
+  }
+
+  // ---------- тест-панель ----------
+  function askNow() {
+    const q = $('q');
+    push({ type: 'question', user: $('name').value, text: q.value });
+    q.value = '';
+    q.focus();
+  }
+  $('askBtn').onclick = askNow;
+  $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') askNow(); });
+  document.querySelectorAll('[data-gift]').forEach((b) => {
+    b.onclick = () => push({ type: 'gift', user: $('name').value, gift: b.dataset.gift });
+  });
+  $('bgBtn').onclick = () => document.body.classList.toggle('green');
+  $('twitchBtn').onclick = () => {
+    const ch = cleanChannel($('twitch').value);
+    if (!ch) return;
+    const u = new URL(location.href);
+    u.searchParams.set('twitch', ch);
+    location.href = u.href; // канал остаётся в адресе — эту ссылку и вставляют в OBS
+  };
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'h' || e.key === 'р' || e.key === 'H' || e.key === 'Р') && document.activeElement.tagName !== 'INPUT') {
+      document.body.classList.toggle('nopanel');
+      fit();
+    }
+  });
+
+  // мишка всегда над панелью, даже если панель переносится в несколько строк
+  function fit() {
+    const panel = $('panel');
+    const pad = panel.offsetHeight ? panel.offsetHeight + 28 : 10;
+    $('stage').style.paddingBottom = pad + 'px';
+    document.body.style.setProperty('--feed-bottom', pad + 'px');
+  }
+  new ResizeObserver(fit).observe($('panel'));
+  addEventListener('resize', fit);
+
+  // ?obs — без панели и с прозрачным фоном, ?green — зелёный фон
+  const params = new URLSearchParams(location.search);
+  if (params.has('obs')) document.body.classList.add('obs');
+  if (params.has('green')) document.body.classList.add('green');
+  const twitchChannel = cleanChannel(params.get('twitch'));
+  if (twitchChannel) {
+    $('twitch').value = twitchChannel;
+    connectTwitch(twitchChannel);
+  }
+  fit();
+</script>
+</body>
+</html>
