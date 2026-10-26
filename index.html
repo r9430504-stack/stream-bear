@@ -162,36 +162,132 @@
   <ul id="feed"></ul>
   <div id="bear-wrap">
     <div id="bubble"></div>
-    <svg id="bear" viewBox="0 0 300 360" xmlns="http://www.w3.org/2000/svg">
+    <svg id="bear" viewBox="0 0 300 370" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="gFur" cx="40%" cy="32%" r="75%">
+          <stop offset="0" stop-color="#b98458"/>
+          <stop offset=".55" stop-color="#93603b"/>
+          <stop offset="1" stop-color="#6a4127"/>
+        </radialGradient>
+        <radialGradient id="gFurDark" cx="45%" cy="30%" r="80%">
+          <stop offset="0" stop-color="#9c6a44"/>
+          <stop offset="1" stop-color="#5e3921"/>
+        </radialGradient>
+        <radialGradient id="gMuzzle" cx="50%" cy="35%" r="70%">
+          <stop offset="0" stop-color="#f1d9ba"/>
+          <stop offset="1" stop-color="#cc9f74"/>
+        </radialGradient>
+        <radialGradient id="gBelly" cx="50%" cy="35%" r="70%">
+          <stop offset="0" stop-color="#ecd0ab"/>
+          <stop offset="1" stop-color="#c39467"/>
+        </radialGradient>
+        <radialGradient id="gEar" cx="50%" cy="60%" r="60%">
+          <stop offset="0" stop-color="#f0bfa6"/>
+          <stop offset="1" stop-color="#c5866a"/>
+        </radialGradient>
+        <radialGradient id="gBlush" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stop-color="#ff7f86" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#ff7f86" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="gNose" cx="40%" cy="30%" r="70%">
+          <stop offset="0" stop-color="#5a3a29"/>
+          <stop offset="1" stop-color="#160d08"/>
+        </radialGradient>
+        <radialGradient id="gIris" cx="40%" cy="35%" r="65%">
+          <stop offset="0" stop-color="#7a4a26"/>
+          <stop offset=".6" stop-color="#3a200f"/>
+          <stop offset="1" stop-color="#140a04"/>
+        </radialGradient>
+        <linearGradient id="gScarf" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ff5a4e"/>
+          <stop offset="1" stop-color="#c62f2a"/>
+        </linearGradient>
+        <radialGradient id="gPad" cx="50%" cy="40%" r="60%">
+          <stop offset="0" stop-color="#e9b8a0"/>
+          <stop offset="1" stop-color="#b97d63"/>
+        </radialGradient>
+        <filter id="fSoft" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity=".25"/>
+        </filter>
+      </defs>
+
+      <!-- тень на полу -->
+      <ellipse cx="150" cy="356" rx="112" ry="11" fill="#000" opacity=".22"/>
+
       <!-- тело -->
-      <g id="torso">
-        <ellipse cx="100" cy="342" rx="32" ry="16" fill="#7a4e33"/>
-        <ellipse cx="200" cy="342" rx="32" ry="16" fill="#7a4e33"/>
-        <ellipse cx="150" cy="282" rx="95" ry="65" fill="#8b5a3c"/>
-        <ellipse cx="150" cy="296" rx="56" ry="42" fill="#c99a6e"/>
-        <g id="pawL"><ellipse cx="68" cy="275" rx="22" ry="36" fill="#7a4e33" transform="rotate(20 68 275)"/></g>
-        <g id="pawR"><ellipse cx="232" cy="275" rx="22" ry="36" fill="#7a4e33" transform="rotate(-20 232 275)"/></g>
-      </g>
-      <!-- голова -->
-      <g id="head">
-        <circle cx="68" cy="62" r="32" fill="#8b5a3c"/>
-        <circle cx="68" cy="62" r="16" fill="#c99a6e"/>
-        <circle cx="232" cy="62" r="32" fill="#8b5a3c"/>
-        <circle cx="232" cy="62" r="16" fill="#c99a6e"/>
-        <circle cx="150" cy="140" r="100" fill="#9c6644"/>
-        <circle cx="85" cy="172" r="15" fill="#ff8a8a" opacity=".35"/>
-        <circle cx="215" cy="172" r="15" fill="#ff8a8a" opacity=".35"/>
-        <g id="eyes">
-          <circle cx="112" cy="130" r="12" fill="#2b1b12"/>
-          <circle cx="188" cy="130" r="12" fill="#2b1b12"/>
-          <circle cx="116" cy="126" r="4" fill="#fff"/>
-          <circle cx="192" cy="126" r="4" fill="#fff"/>
+      <g id="torso" filter="url(#fSoft)">
+        <!-- ступни с подушечками -->
+        <g>
+          <ellipse cx="98" cy="340" rx="36" ry="19" fill="url(#gFurDark)" stroke="#4b2d19" stroke-width="2"/>
+          <ellipse cx="98" cy="343" rx="16" ry="10" fill="url(#gPad)"/>
+          <circle cx="82" cy="331" r="5" fill="url(#gPad)"/><circle cx="94" cy="327" r="5" fill="url(#gPad)"/>
+          <circle cx="106" cy="327" r="5" fill="url(#gPad)"/><circle cx="116" cy="332" r="5" fill="url(#gPad)"/>
+          <ellipse cx="202" cy="340" rx="36" ry="19" fill="url(#gFurDark)" stroke="#4b2d19" stroke-width="2"/>
+          <ellipse cx="202" cy="343" rx="16" ry="10" fill="url(#gPad)"/>
+          <circle cx="184" cy="332" r="5" fill="url(#gPad)"/><circle cx="194" cy="327" r="5" fill="url(#gPad)"/>
+          <circle cx="206" cy="327" r="5" fill="url(#gPad)"/><circle cx="218" cy="331" r="5" fill="url(#gPad)"/>
         </g>
-        <path id="browL" d="" stroke="#2b1b12" stroke-width="6" stroke-linecap="round" fill="none"/>
-        <path id="browR" d="" stroke="#2b1b12" stroke-width="6" stroke-linecap="round" fill="none"/>
-        <ellipse cx="150" cy="182" rx="46" ry="34" fill="#d9b08c"/>
-        <ellipse cx="150" cy="165" rx="15" ry="10" fill="#2b1b12"/>
-        <path id="mouth" d="" stroke="#2b1b12" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- туловище с пушистым краем -->
+        <ellipse cx="150" cy="282" rx="96" ry="66" fill="url(#gFur)" stroke="#4b2d19" stroke-width="2"/>
+        <ellipse cx="150" cy="282" rx="96" ry="66" fill="none" stroke="#93603b" stroke-width="7" stroke-dasharray="1 6" stroke-linecap="round"/>
+        <ellipse cx="150" cy="298" rx="58" ry="44" fill="url(#gBelly)"/>
+        <path d="M118 286 q6 -6 12 0 M140 300 q6 -6 12 0 M162 288 q6 -6 12 0 M128 316 q6 -6 12 0 M158 318 q6 -6 12 0" stroke="#b48659" stroke-width="2" fill="none" stroke-linecap="round" opacity=".7"/>
+        <!-- шарф -->
+        <path d="M178 250 L204 304 L184 309 L166 258 Z" fill="url(#gScarf)" stroke="#8f1f1b" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M186 288 L200 284 M190 298 L204 294" stroke="#ffd6a0" stroke-width="3" stroke-linecap="round"/>
+        <path d="M72 234 Q150 272 228 234 L232 254 Q150 296 68 254 Z" fill="url(#gScarf)" stroke="#8f1f1b" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M84 246 Q150 280 216 246" stroke="#ffd6a0" stroke-width="3" fill="none" stroke-dasharray="10 8" stroke-linecap="round"/>
+        <!-- лапы -->
+        <g id="pawL">
+          <ellipse cx="66" cy="278" rx="23" ry="37" fill="url(#gFurDark)" stroke="#4b2d19" stroke-width="2" transform="rotate(20 66 278)"/>
+          <ellipse cx="58" cy="302" rx="10" ry="8" fill="url(#gPad)" transform="rotate(20 58 302)"/>
+        </g>
+        <g id="pawR">
+          <ellipse cx="234" cy="278" rx="23" ry="37" fill="url(#gFurDark)" stroke="#4b2d19" stroke-width="2" transform="rotate(-20 234 278)"/>
+          <ellipse cx="242" cy="302" rx="10" ry="8" fill="url(#gPad)" transform="rotate(-20 242 302)"/>
+        </g>
+      </g>
+
+      <!-- голова -->
+      <g id="head" filter="url(#fSoft)">
+        <!-- уши -->
+        <circle cx="68" cy="64" r="33" fill="url(#gFurDark)" stroke="#4b2d19" stroke-width="2"/>
+        <circle cx="68" cy="64" r="33" fill="none" stroke="#7d5032" stroke-width="6" stroke-dasharray="1 6" stroke-linecap="round"/>
+        <ellipse cx="70" cy="67" rx="17" ry="19" fill="url(#gEar)"/>
+        <circle cx="232" cy="64" r="33" fill="url(#gFurDark)" stroke="#4b2d19" stroke-width="2"/>
+        <circle cx="232" cy="64" r="33" fill="none" stroke="#7d5032" stroke-width="6" stroke-dasharray="1 6" stroke-linecap="round"/>
+        <ellipse cx="230" cy="67" rx="17" ry="19" fill="url(#gEar)"/>
+        <!-- голова с пушистым краем и чубчиком -->
+        <circle cx="150" cy="140" r="100" fill="url(#gFur)" stroke="#4b2d19" stroke-width="2"/>
+        <circle cx="150" cy="140" r="100" fill="none" stroke="#93603b" stroke-width="8" stroke-dasharray="1 6" stroke-linecap="round"/>
+        <path d="M140 44 C136 30 150 22 158 30 C164 36 158 44 151 41" fill="none" stroke="#7d5032" stroke-width="7" stroke-linecap="round"/>
+        <path d="M140 44 C136 30 150 22 158 30 C164 36 158 44 151 41" fill="none" stroke="#a87249" stroke-width="3" stroke-linecap="round"/>
+        <ellipse cx="128" cy="86" rx="48" ry="24" fill="#fff" opacity=".08"/>
+        <!-- щёки -->
+        <circle cx="84" cy="172" r="22" fill="url(#gBlush)"/>
+        <circle cx="216" cy="172" r="22" fill="url(#gBlush)"/>
+        <!-- глаза -->
+        <g id="eyes">
+          <circle cx="112" cy="130" r="15" fill="#5a3721" opacity=".35"/>
+          <circle cx="188" cy="130" r="15" fill="#5a3721" opacity=".35"/>
+          <circle cx="112" cy="130" r="13" fill="url(#gIris)"/>
+          <circle cx="188" cy="130" r="13" fill="url(#gIris)"/>
+          <circle cx="113" cy="131" r="7" fill="#0d0603"/>
+          <circle cx="189" cy="131" r="7" fill="#0d0603"/>
+          <circle cx="117" cy="125" r="4.5" fill="#fff"/>
+          <circle cx="193" cy="125" r="4.5" fill="#fff"/>
+          <circle cx="108" cy="135" r="2" fill="#fff" opacity=".8"/>
+          <circle cx="184" cy="135" r="2" fill="#fff" opacity=".8"/>
+        </g>
+        <path id="browL" d="" stroke="#3b2416" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path id="browR" d="" stroke="#3b2416" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <!-- мордочка -->
+        <ellipse cx="150" cy="186" rx="50" ry="37" fill="#7d5032" opacity=".25"/>
+        <ellipse cx="150" cy="182" rx="48" ry="35" fill="url(#gMuzzle)"/>
+        <path d="M150 174 L150 192" stroke="#3b2416" stroke-width="3" stroke-linecap="round"/>
+        <path d="M134 160 Q150 150 166 160 Q166 172 150 177 Q134 172 134 160 Z" fill="url(#gNose)"/>
+        <ellipse cx="144" cy="159" rx="6" ry="3" fill="#fff" opacity=".45"/>
+        <path id="mouth" d="" stroke="#3b2416" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
     </svg>
   </div>
