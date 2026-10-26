@@ -1,6 +1,7 @@
 // Мост TikTok Live → мишка.
 // Слушает эфир стримера и отдаёт события странице через /events (Server-Sent Events).
 // Запуск: npm start -- имя_в_тиктоке   →   открыть http://localhost:3737
+// Статусы уходят странице кодом (connecting, live…), а текст на нужном языке подставляет она сама.
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -9,22 +10,22 @@ import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-co
 const PORT = Number(process.env.PORT) || 3737;
 const username = (process.argv[2] || '').trim().replace(/^@/, '');
 if (!username) {
-  console.log('Как запустить:  npm start -- имя_в_тиктоке');
+  console.log('Usage:  npm start -- your_tiktok_username');
   process.exit(1);
 }
 
 // ---------- страница и поток событий ----------
 const clients = new Set();
-let status = { type: 'status', state: 'connecting', text: 'Запускаюсь…' };
+let status = { type: 'status', state: 'connecting', code: 'starting', user: username };
 
 function send(ev) {
   const data = `data: ${JSON.stringify(ev)}\n\n`;
   for (const res of clients) res.write(data);
 }
 
-function setStatus(state, text) {
-  status = { type: 'status', state, text };
-  console.log(`[${state}] ${text}`);
+function setStatus(state, code, msg) {
+  status = { type: 'status', state, code, user: username, msg };
+  console.log(`[${state}] ${code}${msg ? ': ' + msg : ''}`);
   send(status);
 }
 
@@ -47,7 +48,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Мишка: http://localhost:${PORT}   (для OBS: http://localhost:${PORT}/?obs)`);
+  console.log(`Bear: http://localhost:${PORT}   (OBS: http://localhost:${PORT}/?obs)`);
 });
 
 // пинг, чтобы соединение со страницей не засыпало
@@ -63,40 +64,40 @@ function reconnect(ms) {
 }
 
 async function connect() {
-  setStatus('connecting', `Подключаюсь к @${username}…`);
+  setStatus('connecting', 'connecting');
   try {
     await Promise.race([
       conn.connect(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 30000)),
     ]);
-    setStatus('live', `В эфире: @${username}`);
+    setStatus('live', 'live');
   } catch (e) {
     const offline = e?.name === 'UserOfflineError' || /offline|not.*live/i.test(e?.message || '');
     if (e?.message === 'TIMEOUT') {
       conn.disconnect().catch(() => {});
-      setStatus('error', 'TikTok не отвечает. Возможно, он заблокирован в твоей сети — нужен доступ к tiktok.com. Повтор через 30 сек…');
+      setStatus('error', 'timeout');
       reconnect(30000);
       return;
     }
-    if (offline) setStatus('offline', `@${username} сейчас не в эфире. Проверю ещё раз через 30 сек…`);
-    else setStatus('error', `Не получилось подключиться: ${e?.message || e}. Повтор через 15 сек…`);
+    if (offline) setStatus('offline', 'offline');
+    else setStatus('error', 'error', String(e?.message || e));
     reconnect(offline ? 30000 : 15000);
   }
 }
 
 conn.on(ControlEvent.DISCONNECTED, () => {
-  setStatus('offline', 'Связь с эфиром пропала, переподключаюсь…');
+  setStatus('offline', 'lost');
   reconnect(15000);
 });
 conn.on(ControlEvent.ERROR, ({ info, exception }) => {
-  console.error('Ошибка TikTok:', info, exception?.message || '');
+  console.error('TikTok error:', info, exception?.message || '');
 });
 conn.on(WebcastEvent.STREAM_END, () => {
-  setStatus('offline', 'Эфир закончился. Жду следующий…');
+  setStatus('offline', 'ended');
   reconnect(30000);
 });
 
-const nameOf = (user) => user?.nickname || user?.uniqueId || 'Зритель';
+const nameOf = (user) => user?.nickname || user?.uniqueId; // без имени страница напишет «Зритель»/«Viewer»
 
 // Вопросом считаем только комментарий со знаком «?», иначе мишка утонет в чате
 conn.on(WebcastEvent.CHAT, (d) => {
@@ -113,7 +114,7 @@ conn.on(WebcastEvent.GIFT, (d) => {
   const coins = (g.diamondCount || 0) * count;
   const gift = coins >= 1000 ? 'universe' : coins >= 10 ? 'lion' : 'rose';
   const giftName = g.giftName ? g.giftName + (count > 1 ? ` ×${count}` : '') : undefined;
-  console.log(`🎁 ${nameOf(d.user)}: ${giftName || d.giftId} (${coins} монет) → ${gift}`);
+  console.log(`🎁 ${nameOf(d.user)}: ${giftName || d.giftId} (${coins} coins) → ${gift}`);
   send({ type: 'gift', user: nameOf(d.user), gift, giftName });
 });
 

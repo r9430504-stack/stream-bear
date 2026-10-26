@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Мишка-стрим</title>
+<title>Stream Bear</title>
 <style>
   :root {
     --bg: #14161c;
@@ -199,20 +199,124 @@
 </div>
 
 <div id="panel">
-  <input id="name" value="Зритель" maxlength="20" aria-label="Имя зрителя">
-  <input id="q" placeholder="Задай вопрос мишке…" maxlength="80" aria-label="Вопрос">
-  <button id="askBtn" class="primary">Спросить</button>
-  <button data-gift="rose">🌹 Мелкий</button>
-  <button data-gift="lion">🦁 Средний</button>
-  <button data-gift="universe">🌌 Крупный</button>
-  <button id="bgBtn">Фон</button>
-  <input id="twitch" placeholder="Twitch-канал" maxlength="25" aria-label="Twitch-канал">
-  <button id="twitchBtn">Подключить Twitch</button>
-  <div id="status" class="test">Тест-режим: впиши свой Twitch-канал и нажми «Подключить Twitch»</div>
-  <div class="hint">Мишка отвечает на комментарии со знаком «?». Подарки TikTok: мелкий — до 10 монет, средний — до 1000, крупный — от 1000. Twitch: до 100 bits, до 1000 bits, от 1000 bits; подписка — средний. Стример и модераторы могут проверить реакции командами !мелкий, !средний, !крупный в чате. H — спрятать панель, «Фон» — зелёный фон для OBS.</div>
+  <input id="name" maxlength="20">
+  <input id="q" maxlength="80">
+  <button id="askBtn" class="primary"></button>
+  <button data-gift="rose"></button>
+  <button data-gift="lion"></button>
+  <button data-gift="universe"></button>
+  <button id="bgBtn"></button>
+  <input id="twitch" maxlength="25">
+  <button id="twitchBtn"></button>
+  <button id="langBtn"></button>
+  <div id="status" class="test"></div>
+  <div id="hint" class="hint"></div>
 </div>
 
 <script>
+  // ---------- язык: ?lang=en|ru, иначе по языку браузера ----------
+  const URLP = new URLSearchParams(location.search);
+  const LANG = ['ru', 'en'].includes(URLP.get('lang')) ? URLP.get('lang')
+    : (navigator.language || '').toLowerCase().startsWith('ru') ? 'ru' : 'en';
+
+  const T = {
+    ru: {
+      title: 'Мишка-стрим',
+      voice: 'ru-RU',
+      viewer: 'Зритель',
+      answers: [
+        { text: 'Да!', say: 'Да' },
+        { text: 'Нет.', say: 'Нет' },
+        { text: 'Хз 🤷', say: 'Не знаю' },
+        { text: 'Ха-ха-ха!', say: 'Ха-ха-ха' },
+      ],
+      gifts: {
+        rose:     { name: 'Розу',      text: 'Спасибо! 💃',  say: 'Спасибо!' },
+        lion:     { name: 'Льва',      text: 'Ой-ой-ой!',    say: 'Ой-ой-ой!' },
+        universe: { name: 'Вселенную', text: 'Ла-ла-ла! 🎉', say: 'Ла-ла-ла-ла!' },
+      },
+      asks: ' спрашивает: ',
+      gives: (gift) => ` дарит ${gift}!`,
+      gave: (gift) => ` подарил(а) ${gift}`,
+      sub: 'подписку',
+      giftedSub: 'подписку в подарок',
+      giftedSubs: (n) => `${n} подписок`,
+      testGift: 'тестовый подарок',
+      ui: {
+        name: 'Имя зрителя', q: 'Задай вопрос мишке…', ask: 'Спросить',
+        rose: '🌹 Мелкий', lion: '🦁 Средний', universe: '🌌 Крупный', bg: 'Фон',
+        twitch: 'Twitch-канал', twitchBtn: 'Подключить Twitch', lang: 'EN',
+        hint: 'Мишка отвечает на комментарии со знаком «?». Подарки TikTok: мелкий — до 10 монет, средний — до 1000, крупный — от 1000. Twitch: до 100 bits, до 1000 bits, от 1000 bits; подписка — средний. Стример и модераторы могут проверить реакции командами !мелкий, !средний, !крупный в чате. H — спрятать панель, «Фон» — зелёный фон для OBS.',
+      },
+      st: {
+        test: 'Тест-режим: впиши свой Twitch-канал и нажми «Подключить Twitch»',
+        twConnecting: (c) => `Подключаюсь к чату twitch.tv/${c}…`,
+        twNotFound: (c) => `Не вижу чат twitch.tv/${c}. Проверь название канала.`,
+        twLive: (c, link) => `Слушаю чат twitch.tv/${c}. Для OBS: ${link}`,
+        twLost: 'Связь с Twitch пропала, переподключаюсь…',
+        noBridge: 'Нет связи с мостом — запущен ли npm start?',
+        tt: {
+          starting: () => 'Запускаюсь…',
+          connecting: (u) => `Подключаюсь к @${u}…`,
+          live: (u) => `В эфире: @${u}`,
+          offline: (u) => `@${u} сейчас не в эфире. Проверю ещё раз через 30 сек…`,
+          timeout: () => 'TikTok не отвечает. Возможно, он заблокирован в твоей сети — нужен доступ к tiktok.com. Повтор через 30 сек…',
+          error: (u, msg) => `Не получилось подключиться: ${msg}. Повтор через 15 сек…`,
+          lost: () => 'Связь с эфиром пропала, переподключаюсь…',
+          ended: () => 'Эфир закончился. Жду следующий…',
+        },
+      },
+    },
+    en: {
+      title: 'Stream Bear',
+      voice: 'en-US',
+      viewer: 'Viewer',
+      answers: [
+        { text: 'Yes!', say: 'Yes' },
+        { text: 'No.', say: 'No' },
+        { text: 'Dunno 🤷', say: "I don't know" },
+        { text: 'Ha-ha-ha!', say: 'Ha ha ha' },
+      ],
+      gifts: {
+        rose:     { name: 'a Rose',       text: 'Thank you! 💃', say: 'Thank you!' },
+        lion:     { name: 'a Lion',       text: 'Oh no no no!',  say: 'Oh no no no!' },
+        universe: { name: 'the Universe', text: 'La-la-la! 🎉',  say: 'La la la la!' },
+      },
+      asks: ' asks: ',
+      gives: (gift) => ` sends ${gift}!`,
+      gave: (gift) => ` sent ${gift}`,
+      sub: 'a sub',
+      giftedSub: 'a gifted sub',
+      giftedSubs: (n) => `${n} gifted subs`,
+      testGift: 'a test gift',
+      ui: {
+        name: 'Viewer name', q: 'Ask the bear a question…', ask: 'Ask',
+        rose: '🌹 Small', lion: '🦁 Medium', universe: '🌌 Big', bg: 'Background',
+        twitch: 'Twitch channel', twitchBtn: 'Connect Twitch', lang: 'RU',
+        hint: 'The bear answers chat messages that end with "?". TikTok gifts: small — under 10 coins, medium — under 1000, big — 1000+. Twitch: under 100 bits, under 1000 bits, 1000+ bits; a sub counts as medium. The streamer and mods can test reactions with !small, !medium, !big in chat. H — hide this panel, "Background" — green screen for OBS.',
+      },
+      st: {
+        test: 'Test mode: enter your Twitch channel and press "Connect Twitch"',
+        twConnecting: (c) => `Connecting to twitch.tv/${c} chat…`,
+        twNotFound: (c) => `Can't find the twitch.tv/${c} chat. Check the channel name.`,
+        twLive: (c, link) => `Listening to twitch.tv/${c} chat. OBS link: ${link}`,
+        twLost: 'Lost connection to Twitch, reconnecting…',
+        noBridge: 'No connection to the bridge — is npm start running?',
+        tt: {
+          starting: () => 'Starting…',
+          connecting: (u) => `Connecting to @${u}…`,
+          live: (u) => `Live: @${u}`,
+          offline: (u) => `@${u} is not live right now. Checking again in 30 s…`,
+          timeout: () => 'TikTok is not responding. It may be blocked on your network — tiktok.com must be reachable. Retrying in 30 s…',
+          error: (u, msg) => `Could not connect: ${msg}. Retrying in 15 s…`,
+          lost: () => 'Lost connection to the live, reconnecting…',
+          ended: () => 'The live has ended. Waiting for the next one…',
+        },
+      },
+    },
+  };
+  const t = T[LANG];
+
   // ---------- лица ----------
   const FACES = {
     neutral: { m: 'M130 198 Q150 210 170 198', fill: 'none',    bl: 'M95 108 Q110 100 125 108', br: 'M175 108 Q190 100 205 108' },
@@ -226,18 +330,19 @@
 
   // ---------- ответы на вопросы ----------
   const ANSWERS = [
-    { text: 'Да!',       say: 'Да',          face: 'happy', anim: 'nod',   dur: 1800 },
-    { text: 'Нет.',      say: 'Нет',         face: 'sad',   anim: 'shake', dur: 1800 },
-    { text: 'Хз 🤷',     say: 'Не знаю',     face: 'meh',   anim: 'shrug', dur: 2000 },
-    { text: 'Ха-ха-ха!', say: 'Ха-ха-ха',    face: 'laugh', anim: 'laugh', dur: 2000 },
-  ];
+    { face: 'happy', anim: 'nod',   dur: 1800 },
+    { face: 'sad',   anim: 'shake', dur: 1800 },
+    { face: 'meh',   anim: 'shrug', dur: 2000 },
+    { face: 'laugh', anim: 'laugh', dur: 2000 },
+  ].map((a, i) => ({ ...a, ...t.answers[i] }));
 
   // ---------- подарки ----------
   const GIFTS = {
-    rose:     { name: 'Розу',      emoji: '🌹', text: 'Спасибо! 💃',  say: 'Спасибо!',      face: 'happy', anim: 'dance', dur: 3200 },
-    lion:     { name: 'Льва',      emoji: '🦁', text: 'Ой-ой-ой!',    say: 'Ой-ой-ой!',     face: 'wow',   anim: 'fall',  dur: 3000 },
-    universe: { name: 'Вселенную', emoji: '🌌', text: 'Ла-ла-ла! 🎉', say: 'Ла-ла-ла-ла!',  face: 'sing',  anim: 'sing',  dur: 3600, confetti: true },
+    rose:     { emoji: '🌹', face: 'happy', anim: 'dance', dur: 3200 },
+    lion:     { emoji: '🦁', face: 'wow',   anim: 'fall',  dur: 3000 },
+    universe: { emoji: '🌌', face: 'sing',  anim: 'sing',  dur: 3600, confetti: true },
   };
+  for (const k in GIFTS) Object.assign(GIFTS[k], t.gifts[k]);
 
   const $ = (id) => document.getElementById(id);
   const bear = $('bear'), wrap = $('bear-wrap'), bubble = $('bubble'), ask = $('ask'), feed = $('feed');
@@ -265,8 +370,8 @@
       if (!s) return;
       s.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ru-RU';
-      const v = s.getVoices().find((v) => v.lang.startsWith('ru'));
+      u.lang = t.voice;
+      const v = s.getVoices().find((v) => v.lang.startsWith(LANG));
       if (v) u.voice = v;
       u.pitch = 0.5;
       u.rate = 0.95;
@@ -322,7 +427,7 @@
   }
   function addFeed(ev) {
     const li = document.createElement('li');
-    if (ev.type === 'gift') line(li, ev.user, ` подарил(а) ${GIFTS[ev.gift].emoji} ${ev.giftName || GIFTS[ev.gift].name}`);
+    if (ev.type === 'gift') line(li, ev.user, t.gave(`${GIFTS[ev.gift].emoji} ${ev.giftName || GIFTS[ev.gift].name}`));
     else line(li, ev.user, `: ${ev.text}`);
     feed.prepend(li);
     while (feed.children.length > 6) feed.lastChild.remove();
@@ -336,7 +441,7 @@
   function push(ev) {
     if (ev.type === 'gift' && !GIFTS[ev.gift]) return;
     if (ev.type === 'question' && !String(ev.text || '').trim()) return;
-    ev.user = String(ev.user || 'Зритель').slice(0, 20);
+    ev.user = String(ev.user || t.viewer).slice(0, 20);
     if (ev.text) ev.text = String(ev.text).slice(0, 80);
     if (ev.giftName) ev.giftName = String(ev.giftName).slice(0, 40);
     // вопросов в очереди не больше 3, всего не больше 15 — подарки важнее
@@ -360,12 +465,12 @@
     let r;
     if (ev.type === 'gift') {
       r = GIFTS[ev.gift];
-      line(ask, ev.user, ` дарит ${r.emoji} ${ev.giftName || r.name}!`);
+      line(ask, ev.user, t.gives(`${r.emoji} ${ev.giftName || r.name}`));
       ding();
       if (r.confetti) confetti();
     } else {
       r = ANSWERS[(Math.random() * ANSWERS.length) | 0];
-      line(ask, ev.user, ` спрашивает: ${ev.text}`);
+      line(ask, ev.user, t.asks + ev.text);
     }
     ask.classList.add('show');
     await wait(500);
@@ -397,10 +502,14 @@
     es.onmessage = (e) => {
       let ev;
       try { ev = JSON.parse(e.data); } catch { return; }
-      if (ev.type === 'status') { st.className = ev.state; st.textContent = ev.text; }
+      if (ev.type === 'status') {
+        const f = t.st.tt[ev.code] || t.st.tt.error;
+        st.className = ev.state;
+        st.textContent = f(ev.user, ev.msg);
+      }
       else push(ev);
     };
-    es.onerror = () => { st.className = 'error'; st.textContent = 'Нет связи с мостом — запущен ли npm start?'; };
+    es.onerror = () => { st.className = 'error'; st.textContent = t.st.noBridge; };
   }
 
   // ---------- Twitch: чат читаем прямо со страницы, без моста и без логина ----------
@@ -413,7 +522,10 @@
   // bits: 100 bits ≈ $1
   const bitTier = (bits) => (bits >= 1000 ? 'universe' : bits >= 100 ? 'lion' : 'rose');
   // команды для проверки без денег — работают только у стримера и модераторов
-  const TEST_CMDS = { '!мелкий': 'rose', '!средний': 'lion', '!крупный': 'universe' };
+  const TEST_CMDS = {
+    '!мелкий': 'rose', '!средний': 'lion', '!крупный': 'universe',
+    '!small': 'rose', '!medium': 'lion', '!big': 'universe',
+  };
 
   function parseIrc(line) {
     const m = { tags: {}, prefix: '', trailing: '' };
@@ -438,7 +550,7 @@
     return m;
   }
 
-  const twitchUser = (m) => m.tags['display-name'] || m.tags.login || m.prefix.split('!')[0] || 'Зритель';
+  const twitchUser = (m) => m.tags['display-name'] || m.tags.login || m.prefix.split('!')[0] || t.viewer;
 
   function onTwitchChat(m) {
     const user = twitchUser(m);
@@ -447,7 +559,7 @@
     if (bits > 0) return push({ type: 'gift', user, gift: bitTier(bits), giftName: `${bits} bits` });
     const cmd = TEST_CMDS[text.toLowerCase()];
     if (cmd && /(^|,)(broadcaster|moderator)\//.test(m.tags.badges || '')) {
-      return push({ type: 'gift', user, gift: cmd, giftName: 'тестовый подарок' });
+      return push({ type: 'gift', user, gift: cmd, giftName: t.testGift });
     }
     if (text.endsWith('?')) push({ type: 'question', user, text });
   }
@@ -456,22 +568,22 @@
     const user = twitchUser(m);
     const id = m.tags['msg-id'];
     if (id === 'sub' || id === 'resub') {
-      push({ type: 'gift', user, gift: 'lion', giftName: 'подписку' });
+      push({ type: 'gift', user, gift: 'lion', giftName: t.sub });
     } else if (id === 'submysterygift') {
       const n = parseInt(m.tags['msg-param-mass-gift-count'] || '1', 10);
-      push({ type: 'gift', user, gift: n >= 5 ? 'universe' : 'lion', giftName: `${n} подписок` });
+      push({ type: 'gift', user, gift: n >= 5 ? 'universe' : 'lion', giftName: t.giftedSubs(n) });
     } else if (id === 'subgift' && !m.tags['msg-param-community-gift-id']) {
       // подписки из «пачки» уже посчитаны в submysterygift, тут только одиночные
-      push({ type: 'gift', user, gift: 'lion', giftName: 'подписку в подарок' });
+      push({ type: 'gift', user, gift: 'lion', giftName: t.giftedSub });
     }
   }
 
   function connectTwitch(channel) {
     const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
     let joined = false;
-    showStatus('connecting', `Подключаюсь к чату twitch.tv/${channel}…`);
+    showStatus('connecting', t.st.twConnecting(channel));
     const check = setTimeout(() => {
-      if (!joined) showStatus('error', `Не вижу чат twitch.tv/${channel}. Проверь название канала.`);
+      if (!joined) showStatus('error', t.st.twNotFound(channel));
     }, 10000);
     ws.onopen = () => {
       ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
@@ -486,7 +598,7 @@
         else if (m.command === 'ROOMSTATE' && !joined) {
           joined = true;
           clearTimeout(check);
-          showStatus('live', `Слушаю чат twitch.tv/${channel}. Для OBS: ${obsLink(channel)}`);
+          showStatus('live', t.st.twLive(channel, obsLink(channel)));
         }
         else if (m.command === 'NOTICE') showStatus('error', 'Twitch: ' + m.trailing);
         else if (m.command === 'PRIVMSG') onTwitchChat(m);
@@ -495,7 +607,7 @@
     };
     ws.onclose = () => {
       clearTimeout(check);
-      showStatus('offline', 'Связь с Twitch пропала, переподключаюсь…');
+      showStatus('offline', t.st.twLost);
       setTimeout(() => connectTwitch(channel), 5000);
     };
   }
@@ -505,11 +617,33 @@
     const u = new URL(location.href);
     u.search = '';
     u.searchParams.set('twitch', channel);
+    u.searchParams.set('lang', LANG);
     u.searchParams.set('obs', '');
     return u.href;
   }
 
   // ---------- тест-панель ----------
+  document.documentElement.lang = LANG;
+  document.title = t.title;
+  $('name').value = t.viewer;
+  $('name').setAttribute('aria-label', t.ui.name);
+  $('q').placeholder = t.ui.q;
+  $('q').setAttribute('aria-label', t.ui.q);
+  $('askBtn').textContent = t.ui.ask;
+  for (const k of ['rose', 'lion', 'universe']) document.querySelector(`[data-gift="${k}"]`).textContent = t.ui[k];
+  $('bgBtn').textContent = t.ui.bg;
+  $('twitch').placeholder = t.ui.twitch;
+  $('twitch').setAttribute('aria-label', t.ui.twitch);
+  $('twitchBtn').textContent = t.ui.twitchBtn;
+  $('langBtn').textContent = t.ui.lang;
+  $('status').textContent = t.st.test;
+  $('hint').textContent = t.ui.hint;
+  $('langBtn').onclick = () => {
+    const u = new URL(location.href);
+    u.searchParams.set('lang', LANG === 'ru' ? 'en' : 'ru');
+    location.href = u.href;
+  };
+
   function askNow() {
     const q = $('q');
     push({ type: 'question', user: $('name').value, text: q.value });
@@ -547,7 +681,7 @@
   addEventListener('resize', fit);
 
   // ?obs — без панели и с прозрачным фоном, ?green — зелёный фон
-  const params = new URLSearchParams(location.search);
+  const params = URLP;
   if (params.has('obs')) document.body.classList.add('obs');
   if (params.has('green')) document.body.classList.add('green');
   const twitchChannel = cleanChannel(params.get('twitch'));
